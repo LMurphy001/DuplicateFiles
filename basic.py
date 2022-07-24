@@ -3,13 +3,19 @@ import json
 from operator import truediv
 import os
 
+def check_empty_set(s, separator):
+    if (s.strip() == ''):
+        return set()
+    else:
+        return set( s.lower().split(separator) )
+
 def get_options():
     parser = argparse.ArgumentParser(description="Find Duplicate Files in Folders", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('Folders', help='Folder(s) to search for duplicates. Enclose the whole list in quotes and separate the foldernames using the separator.', default="")
-    parser.add_argument('--sep', default='|', help="Separate folders and extensions using the separator. Enclose it in quotes if necessary")
+    parser.add_argument('--separator', default='|', help="Separate folders and extensions using the separator. Enclose it in quotes if necessary")
     parser.add_argument('--min', help="Ignore files with size less than min bytes.", type=int, default=1 )
 
-    parser.add_argument('--max', help="Ignore files with size greater than max bytes. If max bytes is 0, then there's no upper limit on file size.", type=int, default=0 )
+    parser.add_argument('--min', help="Ignore files with size greater than max bytes. If max bytes is 0, then there's no upper limit on file size.", type=int, default=0 )
 
     parser.add_argument('--excl_ext', help='Exclude files with these extensions. Separate the extensions using the separator, and enclose the whole list in quotes', default="")
 
@@ -21,16 +27,9 @@ def get_options():
         exit("At least one folder is required")
     args.Folders = args.Folders.split(args.sep)
 
-    if (args.excl_ext.strip() == ''):
-        args.excl_ext = set()
-    else:
-        args.excl_ext = set( (args.excl_ext).lower().split(args.sep) )
+    args.excl_ext = check_empty_set(args.excl_ext, args.separator)
+    args.incl_ext = check_empty_set(args.incl_ext, args.separator)
 
-    if (args.incl_ext.strip() == ''):
-        args.incl_ext = set()
-    else:
-        args.incl_ext = set( (args.incl_ext).lower().split(args.sep) )
-    
     return args
 
 if __name__ == "__main__":
@@ -214,8 +213,6 @@ def use_hashfunc(filename, hashfunc):
 
 def do_each_file(files):
     for file in files:
-        print( file.replace('c:/users/linda/', '').rjust(48), end="\t")
-
         the_val = getfilesize(file)
         print('size: ', f'{the_val:n}'.rjust(11), end="\n")
 
@@ -263,29 +260,7 @@ def do_each_alg(files):
     print("Tot: {0:0.4f}".format(tot))
     print()
 
-files = [ # 2 files
-    'c:/users/linda/Dropbox/YWTemp/signal-2022-07-10-08-52-50.backup',
-    'c:/users/linda/Dropbox/Mobile Uploads/done/L+M-photos.zip' ]
 
-donefolder = 'c:/users/linda/downloads/done'
-donefiles = [ # 6 files
-    '/Git-2.37.1-64-bit.exe', 
-    '/gnucash-4.11-1.setup.exe',
-    '/Meld-3.20.4-mingw.msi', 
-    '/python-3.10.5-amd64.exe', 
-    '/VSCodeUserSetup-x64-1.69.1.exe', 
-    '/XP630_Lite_NA.exe'
-    ]
-for f in donefiles:
-    files.append(donefolder + f)
-notdonefolder = 'c:/users/linda/downloads/notdone'
-notdonefiles = [ #3
-    '/Mixcraft9-64-Installer.exe',
-    '/Thunderbird Setup 102.0.2.exe', 
-    '/vlc-3.0.17.4-win64.exe'
-]
-for f in notdonefiles:
-    files.append(notdonefolder + f)
 #############################################
 starttime = time.time()
 do_each_alg(files)
