@@ -1,7 +1,11 @@
 import argparse
+import hashlib
+import gc
 import json
-from operator import truediv
-import os
+#from operator import truediv
+#import os
+
+buffersize = 8192
 
 def check_empty_set(s, separator):
     if (s.strip() == ''):
@@ -9,13 +13,24 @@ def check_empty_set(s, separator):
     else:
         return set( s.lower().split(separator) )
 
+def use_hashfunc(filename, hashfunc):
+    hsh = hashfunc()
+    # 'rb' means read, binary
+    with open(filename, 'rb') as f:
+        while True:
+            data = f.read(buffersize)
+            if not data:
+                break
+            hsh.update(data)
+    return hsh
+
 def get_options():
     parser = argparse.ArgumentParser(description="Find Duplicate Files in Folders", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('Folders', help='Folder(s) to search for duplicates. Enclose the whole list in quotes and separate the foldernames using the separator.', default="")
     parser.add_argument('--separator', default='|', help="Separate folders and extensions using the separator. Enclose it in quotes if necessary")
     parser.add_argument('--min', help="Ignore files with size less than min bytes.", type=int, default=1 )
 
-    parser.add_argument('--min', help="Ignore files with size greater than max bytes. If max bytes is 0, then there's no upper limit on file size.", type=int, default=0 )
+    parser.add_argument('--max', help="Ignore files with size greater than max bytes. If max bytes is 0, then the upper limit of bytes is what your computer can handle.", type=int, default=0 )
 
     parser.add_argument('--excl_ext', help='Exclude files with these extensions. Separate the extensions using the separator, and enclose the whole list in quotes', default="")
 
@@ -44,32 +59,26 @@ if __name__ == "__main__":
     are_exclusions = len(args.excl_ext) > 0
     are_inclusions = len(args.incl_ext) > 0
 
+    print("Folders:", args.Folders)
     num_skipped_ext = 0
     for topdir in args.Folders:
         for (root, dirs, files) in os.walk(topdir, topdown=True):
             # Ignore dirs because walk() will traverse them
             for fil in files:
-                #file = fil.lower()
                 thisfile = root + '\\' + fil
                 skip = False
                 if are_exclusions or are_inclusions:
                     pref, ext = os.path.splitext(thisfile)
                     ext = ext.lower()
-                    #print("file:(" + fil + ") pref:(" + pref + ") ext:(" + ext + ")")
                     if (are_exclusions) and (ext in args.excl_ext):
-                        #print('\n***** SKIP: ext ' + ext + " is in", args.excl_ext, "." )
                         skip = True
                     if (not skip) and (are_inclusions) and (ext not in args.incl_ext):
-                        #print("\n***** SKIP: ext " + ext + " is NOT in", args.incl_ext, ".")
                         skip = True
                 if skip:
                     num_skipped_ext += 1
-                    #print("\nFile skipped due to extension: " + thisfile + ' (' + ext + ')')
+                    print("\nFile skipped; extension: " + thisfile + ' (ends in ' + ext + ')')
                 else:
-                    #print("Adding " + thisfile + " to the set", end=' ')
-                    # THIS SCRIPT IS FOR WINDOWS....
                     filenames.add(thisfile)  # filenames is a set. It will not allow duplicates
-                    #print(len(filenames), end = ' ')
 
     print("Number of files skipped due to filename extension:", num_skipped_ext, "Number of files remaining:", len(filenames))
 
@@ -88,10 +97,8 @@ if __name__ == "__main__":
         fsize = os.path.getsize(fn)
         skip = False
         if (fsize < args.min):
-            #print("Too small: " + fn)
             num_too_small += 1
         elif (args.max != 0) and (fsize > args.max):
-            #print("Too big: " + fn)
             num_too_big += 1
         else:
             sizeok += 1
@@ -102,67 +109,53 @@ if __name__ == "__main__":
                 sizes[hxsize] = []
             sizes[hxsize].append(fn)
 
-    print("Num too small:", num_too_small, "Num too big:", num_too_big, ", Tot:", num_too_small + num_too_big, "Size ok:", sizeok)
-
-    #print("SIZES:")
-    #print(json.dumps(sizes, indent=4))
-
+    print("Num too small:", num_too_small, "Num too big:", num_too_big, 
+        ", subtotal:", (num_too_small + num_too_big), "Size ok:", sizeok, 
+        "Grand total:", (sizeok+num_too_small+num_too_big) )
+    
     ''' The only possible duplicates are the entries in sizes dict which have more than one filename associated with them. If there's only 1 filename, then there's no dup.'''
 
     singletons = 0
     multis = 0
     totmultis = 0
+    check_if_dups = dict()
     for hxsize, szfilenames in sizes.items():
         if (len(szfilenames) < 2):
             singletons += 1
         else:
-            multis += 1
             totmultis = totmultis + len(szfilenames)
-    print("Singletons:",singletons,". Totmultis:", totmultis, " Multis:", multis)
+            check_if_dups[hxsize] = szfilenames
+    print("#sizes with only 1 file:", singletons,
+        "#sizes with > 1 file:", len(check_if_dups),
+        "#files needing to be checked:", totmultis);
+    del sizes
+    for hxsize, szfilenames in check_if_dups.items():
+        gc.collect()
+        hashes = dict()
+        for file in szfilenames:
+            hash_val = use_hashfunc(file, hashlib.sha1)
+            if hash_val not in hashes:
+                hashes[hash_val] = []
+            hashes[hash_val] = file
+        # If 2 or more files have the same hash, THEY MIGHT be identical.
+        # They need to be checked byte by byte.
+        # If files have different hashes, they are NOT the same file.
+        for hash_val, files in hashes.items(0): # For each hash value
+            if len(files) > 0:
+                print("The following files have the same size and sha1 hash. They might/might not be duplicates.")
+                print(json.dumps(files), indent=4)
+            else:
+                print("The following file has the same size as others, but different sha1. It isn't the same file")
+                print(files[0])
+                print("Files with same size,",hxsize)
+                print(json.dumps(szfilenames, indent=4))
+            
 exit()
 
-# If more than one folder is to be searched:
-optional_folders = []
-
-folders = [args.folder] + optional_folders
-
-# Ignore files with size < size_min. Default: size 0 file are ignored
-size_min = 1
-
-# If size_max <> 0, then ignore files with size > size_max
-# If size_max == 0, then there is no max size for files.
-size_max = 0
-
-# If included_extensions is empty, then include all extensions
-# If included_extensions is non-empty, then only examine files with extensions in the list
-included_extensions = []
-
-# If excluded_extensions is empty, then no files are excluded based on extension
-# If excluded_extensions is non-empty, then do not examine file if its filename ends with one of excluded_extensions
-excluded_extensions = []
-
-
-
-exit()        
-#from distutils import filelist
-#import os, hashlib, stat
-
+'''
 # Use sha1 and/or CRC because they are relatively fast and don't generate very long hash strings.
 '''
-Given at least 1 folder name and optionally file extensions to include/exclude and optionally file size minimum/maximum
 
-Traverse the folders and get the file size for each file.
-If it is between size min & max or if there are no size restrictions
-    Put the file's full name onto a list for that file size
-    If there is already exactly one file on the list for that file size, calculate the hashes for the existing file and the new file.
-    If they are the same hash, add SIZE+HASH to the COLLISION list. Allow the size+hash list to contain multiple filenames.
-    If they are different hashes, then the same file size has multiple child lists, one for each hash. 
-At the end, examine each collision. Open the files 'rb' and compare contents. If they match, add to the DUPLICATES list
-If they don't match, add to the NOT-DUPLICATES list (same size & hash but different contents)
-
-'''
-
-import hashlib
 
 import locale
 locale.setlocale(locale.LC_ALL, '') 
@@ -201,17 +194,8 @@ def get_zlib_crc32(filename):
 def getfilesize(filename):
     return os.path.getsize(filename)
 
-def use_hashfunc(filename, hashfunc):
-    hsh = hashfunc()
-    with open(filename, 'rb') as f:
-        while True:
-            data = f.read(buffersize)
-            if not data:
-                break
-            hsh.update(data)
-    return hsh
 
-def do_each_file(files):
+""" def do_each_file(files):
     for file in files:
         the_val = getfilesize(file)
         print('size: ', f'{the_val:n}'.rjust(11), end="\n")
@@ -228,7 +212,7 @@ def do_each_file(files):
         the_val = use_hashfunc(file, hashlib.sha256)
         print("  sha256: {0}".format(the_val.hexdigest()), end="\n")
 
-        print("\n")
+        print("\n") """
 
 def time_func(files, func):
     starttime = time.time()
