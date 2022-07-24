@@ -124,32 +124,38 @@ if __name__ == "__main__":
             singletons += 1
         else:
             totmultis = totmultis + len(szfilenames)
+            print("Set check_if_dups for hxsize", hdxsize, 'len', len(szfilenames))
             check_if_dups[hxsize] = szfilenames
+
     print("#sizes with only 1 file:", singletons,
         "#sizes with > 1 file:", len(check_if_dups),
         "#files needing to be checked:", totmultis);
-    del sizes
+    
+    del sizes #not needed anymore. use check_if_dups
+
+    print("len of check_if_dups:", len(check_if_dups))
+
     for hxsize, szfilenames in check_if_dups.items():
         gc.collect()
         hashes = dict()
+        print(hxsize, "#files:", len(szfilenames))
+        print("   ", json.dumps(szfilenames, indent=4))
         for file in szfilenames:
             hash_val = use_hashfunc(file, hashlib.sha1)
             if hash_val not in hashes:
                 hashes[hash_val] = []
             hashes[hash_val] = file
+            print('   ', file, 'hash:', hash_val)
         # If 2 or more files have the same hash, THEY MIGHT be identical.
         # They need to be checked byte by byte.
         # If files have different hashes, they are NOT the same file.
         for hash_val, files in hashes.items(0): # For each hash value
             if len(files) > 0:
-                print("The following files have the same size and sha1 hash. They might/might not be duplicates.")
+                print("The following files have the same size and sha1 hash. They might/might not be duplicates. THEY MUST BE COMPARED BYTE BY BYTE")
                 print(json.dumps(files), indent=4)
             else:
-                print("The following file has the same size as others, but different sha1. It isn't the same file")
-                print(files[0])
-                print("Files with same size,",hxsize)
-                print(json.dumps(szfilenames, indent=4))
-            
+                print("The following file has same size, but different sha1. Not same file:", files[0])
+
 exit()
 
 '''
