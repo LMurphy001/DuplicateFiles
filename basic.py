@@ -3,7 +3,12 @@ import hashlib
 import gc
 import json
 #from operator import truediv
-#import os
+import os
+import locale
+import time # Using this for detecting elapsed time.
+
+locale.setlocale(locale.LC_ALL, '') 
+
 
 buffersize = 8192
 
@@ -40,7 +45,7 @@ def get_options():
 
     if (args.Folders.strip() == ''):
         exit("At least one folder is required")
-    args.Folders = args.Folders.split(args.sep)
+    args.Folders = args.Folders.split(args.separator)
 
     args.excl_ext = check_empty_set(args.excl_ext, args.separator)
     args.incl_ext = check_empty_set(args.incl_ext, args.separator)
@@ -93,8 +98,10 @@ if __name__ == "__main__":
     num_too_small = 0
     num_too_big = 0
     sizeok = 0
+    num_files = 0
     for fn in filenames:
         fsize = os.path.getsize(fn)
+        num_files += 1
         skip = False
         if (fsize < args.min):
             num_too_small += 1
@@ -109,36 +116,42 @@ if __name__ == "__main__":
                 sizes[hxsize] = []
             sizes[hxsize].append(fn)
 
-    print("Num too small:", num_too_small, "Num too big:", num_too_big, 
-        ", subtotal:", (num_too_small + num_too_big), "Size ok:", sizeok, 
-        "Grand total:", (sizeok+num_too_small+num_too_big) )
+    print("# of files:", num_files, "# files too small:", num_too_small, "# files too big:", num_too_big, 
+        ", Tot #files excluded due to size:", (num_too_small + num_too_big))
+    print("#files with size ok:", sizeok, "#files excluded + size ok:", sizeok + num_too_small + num_too_big) 
+    print("# of unique sizes:", len(sizes))
     
     ''' The only possible duplicates are the entries in sizes dict which have more than one filename associated with them. If there's only 1 filename, then there's no dup.'''
 
     singletons = 0
-    multis = 0
-    totmultis = 0
     check_if_dups = dict()
+    multis = 0
     for hxsize, szfilenames in sizes.items():
-        if (len(szfilenames) < 2):
+        if (len(szfilenames) < 2): # If there's only 1 file with this length, it's a singleton
             singletons += 1
         else:
-            totmultis = totmultis + len(szfilenames)
-            print("Set check_if_dups for hxsize", hdxsize, 'len', len(szfilenames))
             check_if_dups[hxsize] = szfilenames
+            multis += 1 # There are at least 2 files with this file size
 
     print("#sizes with only 1 file:", singletons,
-        "#sizes with > 1 file:", len(check_if_dups),
-        "#files needing to be checked:", totmultis);
+        "#sizes with > 1 file:", multis)
     
     del sizes #not needed anymore. use check_if_dups
 
-    print("len of check_if_dups:", len(check_if_dups))
+    #print("check_if_dups:")
+    #print(json.dumps(check_if_dups, indent=4))
+    
+    f'{the_val:n}'.rjust(11)
+
+    f'{value:,}' # .rjust(15)  
+
+    print("For each size and list of files with that size:")
 
     for hxsize, szfilenames in check_if_dups.items():
         gc.collect()
         hashes = dict()
-        print(hxsize, "#files:", len(szfilenames))
+        size = int(hxsize, 16)
+        print("Size:", f'{size:,}', "#files:", len(szfilenames))
         print("   ", json.dumps(szfilenames, indent=4))
         for file in szfilenames:
             hash_val = use_hashfunc(file, hashlib.sha1)
@@ -151,10 +164,10 @@ if __name__ == "__main__":
         # If files have different hashes, they are NOT the same file.
         for hash_val, files in hashes.items(0): # For each hash value
             if len(files) > 0:
-                print("The following files have the same size and sha1 hash. They might/might not be duplicates. THEY MUST BE COMPARED BYTE BY BYTE")
-                print(json.dumps(files), indent=4)
+                print("   The following files have the same size and sha1 hash. They might/might not be duplicates. THEY MUST BE COMPARED BYTE BY BYTE")
+                print("   ",json.dumps(files), indent=4)
             else:
-                print("The following file has same size, but different sha1. Not same file:", files[0])
+                print("   The following file has same size, but different sha1. Not same file:", files[0])
 
 exit()
 
@@ -163,10 +176,6 @@ exit()
 '''
 
 
-import locale
-locale.setlocale(locale.LC_ALL, '') 
-
-import time # Using this for detecting elapsed time.
 
 import os
 import zlib
