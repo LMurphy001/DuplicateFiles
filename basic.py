@@ -9,6 +9,8 @@ import time # Using this for detecting elapsed time.
 
 locale.setlocale(locale.LC_ALL, '') 
 
+def thousands(value):
+    return f'{value:n}'   
 
 buffersize = 8192
 
@@ -54,24 +56,22 @@ def get_options():
 
 if __name__ == "__main__":
     args = get_options()
-    '''options = vars(args) # turn object 'args' into a dict and print with json 
-    print("You have specified the following options:")
-    print( json.dumps(options, indent=4))
-    print("=============================")'''
 
     filenames = set()
     
     are_exclusions = len(args.excl_ext) > 0
     are_inclusions = len(args.incl_ext) > 0
 
-    print("Folders:", args.Folders)
+    print("Folders:", args.Folders,"\n")
     num_skipped_ext = 0
+    num_files = 0
     for topdir in args.Folders:
         for (root, dirs, files) in os.walk(topdir, topdown=True):
             # Ignore dirs because walk() will traverse them
             for fil in files:
                 thisfile = root + '\\' + fil
                 skip = False
+                num_files += 1
                 if are_exclusions or are_inclusions:
                     pref, ext = os.path.splitext(thisfile)
                     ext = ext.lower()
@@ -85,7 +85,9 @@ if __name__ == "__main__":
                 else:
                     filenames.add(thisfile)  # filenames is a set. It will not allow duplicates
 
-    print("Number of files skipped due to filename extension:", num_skipped_ext, "Number of files remaining:", len(filenames))
+    print("#Files", thousands(num_files), 
+        "#skipped due to filename extension:", thousands(num_skipped_ext),
+        "Len filenames[]:", thousands(len(filenames)) )
 
     sizes=dict()
     # sizes is a dict. the key is an int, the size. it is unique in the dict. 
@@ -94,7 +96,6 @@ if __name__ == "__main__":
     # Any sizes[size] with more than one file is a possible collision
     # To determine duplicates...
 
-    #print("Filenames:")
     num_too_small = 0
     num_too_big = 0
     sizeok = 0
@@ -109,44 +110,43 @@ if __name__ == "__main__":
             num_too_big += 1
         else:
             sizeok += 1
-            hxsize = hex(fsize)
-            if hxsize[:2].lower() == "0x":
-                hxsize = hxsize[2:]
-            if (hxsize not in sizes):
-                sizes[hxsize] = []
-            sizes[hxsize].append(fn)
+            sizestr = str(fsize)
+            if (sizestr not in sizes):
+                sizes[sizestr] = []
+            sizes[sizestr].append(fn)
 
-    print("# of files:", num_files, "# files too small:", num_too_small, "# files too big:", num_too_big, 
-        ", Tot #files excluded due to size:", (num_too_small + num_too_big))
-    print("#files with size ok:", sizeok, "#files excluded + size ok:", sizeok + num_too_small + num_too_big) 
-    print("# of unique sizes:", len(sizes))
+    print("# of files:", thousands(num_files), 
+        "# files too small:", thousands(num_too_small),
+        "# files too big:", thousands(num_too_big), 
+        ", Tot #files excluded due to size:", thousands(num_too_small + num_too_big), "\n")
+
+    print("#files with size ok:", thousands(sizeok),
+        "#files excluded + size ok:", thousands(sizeok + num_too_small + num_too_big) )
+    print("# of unique sizes:", thousands(len(sizes)))
     
     ''' The only possible duplicates are the entries in sizes dict which have more than one filename associated with them. If there's only 1 filename, then there's no dup.'''
 
     singletons = 0
     check_if_dups = dict()
     multis = 0
-    for hxsize, szfilenames in sizes.items():
+    for sizestr, szfilenames in sizes.items():
         if (len(szfilenames) < 2): # If there's only 1 file with this length, it's a singleton
             singletons += 1
         else:
-            check_if_dups[hxsize] = szfilenames
+            check_if_dups[sizestr] = szfilenames
             multis += 1 # There are at least 2 files with this file size
 
-    print("#sizes with only 1 file:", singletons, "#sizes with > 1 file:", multis)
+    print("#Sizes with only 1 file:", thousands(singletons), "#Sizes with > 1 file:", thousands(multis),"\n")
     
     del sizes #not needed anymore. use check_if_dups
 
-    #print("check_if_dups:")
-    #print(json.dumps(check_if_dups, indent=4))
-    #    f'{the_val:n}'.rjust(11)     f'{value:,}' # .rjust(15)  
-
     print("For each size and list of files with that size:")
-
-    for hxsize, szfilenames in check_if_dups.items():
+    multi = 0
+    for sizestr, szfilenames in check_if_dups.items():
+        multi += 1
         hashes = dict()
-        size = int(hxsize, 16)
-        print("Size:", f'{size:,}', "#Files:", len(szfilenames))
+        size = int(sizestr)
+        print("Size:", thousands(size), "#Files:", thousands(len(szfilenames)))
         print("   ", json.dumps(szfilenames, indent=4))
         for file in szfilenames:
             hash_val = use_hashfunc(file, hashlib.sha1)
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         for hash_val, files in hashes.items(): # For each hash value
             if len(files) > 0:
                 print("   The following files have the same size and sha1 hash. They might/might not be duplicates. THEY MUST BE COMPARED BYTE BY BYTE")
-                print("   ",json.dumps(files), indent=4)
+                print("   ",json.dumps(files, indent=4))
             else:
                 print("   The following file has same size, but different sha1. Not same file:", files[0])
 
