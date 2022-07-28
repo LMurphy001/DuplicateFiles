@@ -1,4 +1,6 @@
-import json, os, os.path
+import Criteria
+from utils import get_cmd_line_options, open_for_write, uprint, now_str, simple_print_dict, close_file
+'''import json, os, os.path
 from utils import get_cmd_line_options
 from utils import open_for_write
 from utils import close_file
@@ -6,6 +8,7 @@ from utils import now_str
 from utils import uprint
 from utils import thousands
 from utils import is_junction
+'''
 
 '''def nonzerostr(label:str, val:int):
     if val != 0:
@@ -32,7 +35,7 @@ def stat_str(stat) -> str:
     return s
 '''
 
-def recurse_dir(dirname:str, filelist:list, params, f_errorlog):
+'''def recurse_dir(dirname:str, filelist:list, params, f_errorlog):
     ##### TODO: FIX CHECKING TO USE ALL LOWERCASE ########
     subdirs = []
     try:
@@ -91,8 +94,9 @@ class Params:
               
     def __str__(self):
         return f'Params(folders:{self.incl_folders}, exclude folders:{self.excl_folders}, files:{self.incl_files}, exclude files:{self.excl_files}, extensions:{self.incl_exts}, exclude extensions:{self.excl_exts})'
-
+'''
 #######################################################################################
+
 opts = get_cmd_line_options()
 f_log = open_for_write(opts['log_file'], append=True)
 
@@ -100,18 +104,19 @@ uprint("", file=f_log)
 uprint(now_str(), 'Start', file=f_log)
 
 f_out = open_for_write(opts['output_file'])
-params = Params(opts)
+criteria = Criteria(opts)
 countTopDir = 0
-filelist = []
-for topdir in params.incl_folders:
+filelist = dict
+folderlist = dict
+for topdir in criteria.incl_folders:
     countTopDir += 1
     uprint(now_str(), countTopDir, ") topdir: '" + topdir + "'", file=f_log)
-    recurse_dir(topdir, filelist, params, f_log)
+    criteria.dir_meets_criteria()
 
-uprint("FILE LIST. Len:", thousands(len(filelist)), file=f_out)
-uprint(json.dumps(filelist, indent=2), file=f_out)
+simple_print_dict(folderlist, "FOLDER LIST:", f_out)
+simple_print_dict(filelist, "FILE LIST:", f_out)
+
 uprint(now_str(), "Finished.", file=f_log)
-
 
 close_file(f_out)
 close_file(f_log)

@@ -1,11 +1,12 @@
-import sys
-import argparse
-import json
 import locale
-import os
+import os # os.readlink
 from datetime import datetime
+from sys import stderr, stdout
+from argparse import ArgumentParser
+from json import loads
 
-# Todo: add options to the config file for file encoding. For now, fudging utf-8 and utf-16. Not sure if it covers the bases.
+# Todo: add options to the config file for file encoding. File/folder names and contents.
+# For now, fudging utf-8 and utf-16. Not sure if it covers the bases.
 
 def thousands(value : int) -> str:
     return f'{value:n}'
@@ -20,7 +21,7 @@ def now_str() -> str:
     s = s + dt.strftime('.%f')[:4]
     return s
 
-def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
+def uprint(*objects, sep=' ', end='\n', file=stdout):
     enc = file.encoding
     if enc == 'UTF-8' or enc == 'UTF-16':
         print(*objects, sep=sep, end=end, file=file)
@@ -28,16 +29,6 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         f = lambda obj: str(obj).encode(enc, errors='backslashreplace').decode(enc)
         print(*map(f, objects), sep=sep, end=end, file=file)
 
-'''def logmsg(logfile, msg : str, addts=True, nowstr='', doflush=False):
-    if not addts:
-        nowstr = ''
-    else:
-        if nowstr == '':
-            nowstr = now_str()
-    uprint(nowstr, msg, file=logfile)
-    if doflush:
-        logfile.flush()
-'''
 def is_junction(path: str) -> bool:
     try:
         return bool(os.readlink(path))
@@ -51,7 +42,7 @@ def read_text_file(filename : str, r_enc = "UTF-8") -> str:
         txt = f.read()
         f.close()
     except Exception as e:
-        uprint(filename, e, sys.stderr)
+        uprint(filename, e, stderr)
         return ''
     return txt
 
@@ -64,7 +55,7 @@ def open_for_write(filename : str, append=False, w_enc="UTF-8"):
     try:
         f = open(filename, mode=o_mode, encoding=w_enc)
     except Exception as e:
-        uprint("Unable to write",filename, "Mode:",o_mode,"Encoding:", w_enc, e, sys.stderr)
+        uprint("Unable to write",filename, "Mode:",o_mode,"Encoding:", w_enc, e, stderr)
     return f
 
 def close_file(f):
@@ -73,7 +64,7 @@ def close_file(f):
 def get_cmd_line_options() -> dict:
 
     def get_options_filename() -> str:
-        parser = argparse.ArgumentParser(description="Find Duplicate Files in Folders")
+        parser = ArgumentParser(description="Find Duplicate Files in Folders")
         parser.add_argument('Options_filename', help="Name of .json file with the script's options. See the example in config.json file", default="")
         args = parser.parse_args()
         if (args.Options_filename.strip() == ''):
@@ -83,9 +74,9 @@ def get_cmd_line_options() -> dict:
     options_filename = get_options_filename()
     readtxt = read_text_file(options_filename)
     try:
-        dictionary = json.loads(readtxt)
+        dictionary = loads(readtxt)
     except Exception as e:
-        uprint('EXCEPTION: Badly formatted json in', options_filename,"\n", e, sys.stderr)
+        uprint('EXCEPTION: Badly formatted json in', options_filename,"\n", e, stderr)
     return dictionary
 
 def hash_large_file(filename : str, hashfunc, errorlog, buffersize : int = 4096):
@@ -109,3 +100,18 @@ def hash_large_file(filename : str, hashfunc, errorlog, buffersize : int = 4096)
             return 0
     f.close()
     return hsh
+
+def simple_print_dict(adict:dict, label:str, outfile):
+    uprint(label, file=outfile)
+    for key, val in adict.items():
+        uprint(' ', key, ' = [', file=outfile)
+        for name in val:
+            uprint('   ', name, file=outfile)
+    uprint(']', file=outfile)
+    uprint(file=outfile)
+
+def list_to_lower(list:list)->list:
+    res = list
+    for item in list:
+        res.append(str(item).lower())
+    return res
