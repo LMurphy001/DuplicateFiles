@@ -2,9 +2,16 @@ import sys
 import argparse
 import json
 import locale
+import os
 from datetime import datetime
 
 # Todo: add options to the config file for file encoding. For now, fudging utf-8 and utf-16. Not sure if it covers the bases.
+
+def thousands(value : int) -> str:
+    return f'{value:n}'
+
+def timex(end_time, st_time):
+    return "{0:0.4f}".format(end_time - st_time)
 
 def now_str() -> str:
     locale.setlocale(locale.LC_ALL, '')
@@ -21,7 +28,7 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         f = lambda obj: str(obj).encode(enc, errors='backslashreplace').decode(enc)
         print(*map(f, objects), sep=sep, end=end, file=file)
 
-def logmsg(logfile, msg : str, addts=True, nowstr='', doflush=False):
+'''def logmsg(logfile, msg : str, addts=True, nowstr='', doflush=False):
     if not addts:
         nowstr = ''
     else:
@@ -30,6 +37,12 @@ def logmsg(logfile, msg : str, addts=True, nowstr='', doflush=False):
     uprint(nowstr, msg, file=logfile)
     if doflush:
         logfile.flush()
+'''
+def is_junction(path: str) -> bool:
+    try:
+        return bool(os.readlink(path))
+    except OSError: # non-link paths will land here.
+        return False
 
 def read_text_file(filename : str, r_enc = "UTF-8") -> str:
     ''' Read a whole UTF-8 file and return its contents. Not suitable for large or binary files. '''
@@ -75,3 +88,24 @@ def get_cmd_line_options() -> dict:
         uprint('EXCEPTION: Badly formatted json in', options_filename,"\n", e, sys.stderr)
     return dictionary
 
+def hash_large_file(filename : str, hashfunc, errorlog, buffersize : int = 4096):
+    ''' hash very large file. Buffers. Easier on computer's memory (RAM). '''
+    hsh = hashfunc()
+    # 'rb' means read, binary
+    try:
+        f = open(filename, 'rb')
+    except Exception as e:
+        uprint('hash_large_file, open()', filename, e, file=errorlog)
+        return 0
+
+    while True:
+        try:
+            data = f.read(buffersize)
+            if not data:
+                break
+            hsh.update(data)
+        except Exception as e:
+            uprint('hash_large_file, read() or hash update()', filename, e, file=errorlog)
+            return 0
+    f.close()
+    return hsh

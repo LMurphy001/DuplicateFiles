@@ -226,47 +226,10 @@ def comp_file_bytes(fn1 : str, fn2 : str) -> bool:
 # then open the files, buffered, and compare byte by byte to determine
 # if they are actually duplicates. 'rb'
 
-class Student:
-    def __init__(self, roll_no, name, batch):
-        self.roll_no = roll_no
-        self.name = name
-        self.batch = batch
-  
 ##############################################################################################
 if __name__ == "__main__":
     locale.setlocale(locale.LC_ALL, '')
 
-    dc = dict()
-    dc['min'] = 1
-    dc['max'] = 0
-    dc['output_file'] = '..\\basic.txt'
-
-    dc['folders'] = ['o:', 'e:', 'c:\\users']
-    dc['exclude_folders'] = ['o:\\github\\duplicatefiles\\.git', 'e:\\fakedir']
-
-    dc['files'] = []
-    dc['exclude_files'] = ['key','expand']
-
-    dc['extension'] = []
-    dc['exclude_ext'] = ['.obj', '.ssh']
-
-    dc['Json-Config-File-Help'] = {
-        "min" : "Ignore files with size less than 'min' bytes. Default = 1",
-        "max" : "Ignore files with size greater than 'max' bytes. If max bytes is 0, then it is ignored. Default: 0" 
-        }
-
-
-    print(json.dumps(dc,indent=2))
-    
-    
-    #f = open('data.json', 'r', encoding='utf-8')
-  
-# returns JSON object as 
-# a dictionary
-    #data = json.load(f)
-
-    exit()
-    
     t0 = time()
 
     opts = get_options()
