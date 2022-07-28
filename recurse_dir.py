@@ -1,36 +1,3 @@
-import json, os, os.path
-from utils import get_cmd_line_options
-from utils import open_for_write
-from utils import close_file
-from utils import now_str
-from utils import uprint
-from utils import thousands
-from utils import is_junction
-
-'''def nonzerostr(label:str, val:int):
-    if val != 0:
-        return label +':'+str(val)+' '
-    else:
-        return ' '
-
-def stat_str(stat) -> str:
-    s = ''
-    if stat.st_mode != 16895:
-        s += nonzerostr('mode', stat.st_mode)
-    #s += nonzerostr('ino', stat.st_ino)
-    s += nonzerostr('dev', stat.st_dev)
-    s += nonzerostr('nlink', stat.st_nlink)
-    s += nonzerostr('uid', stat.st_uid)
-    s += nonzerostr('gid', stat.st_gid)
-    s += nonzerostr('size', stat.st_size)
-    s = s.strip()
-    #s = s + ' '
-    #s += nonzerostr('atime', stat.st_atime)
-    #s += nonzerostr('mtime', stat.st_mtime)
-    #s += nonzerostr('ctime', stat.st_ctime)
-    #s = s.strip()
-    return s
-'''
 
 def recurse_dir(dirname:str, filelist:list, params, f_errorlog):
     ##### TODO: FIX CHECKING TO USE ALL LOWERCASE ########
@@ -78,40 +45,3 @@ def recurse_dir(dirname:str, filelist:list, params, f_errorlog):
     except Exception as e:
         uprint(now_str(), "EXCEPTION, recurse_dir:", "'" + dirname + "' ", e, file=f_errorlog)
 
-class Params:
-    def __init__(self, opts):
-        self.min_bytes    = opts['min_bytes']
-        self.max_bytes    = opts['max_bytes']
-        self.incl_folders = set(opts['folders']) #cloth = cloth
-        self.excl_folders = set(opts['exclude_folders'])
-        self.incl_files   = set(opts['files'])
-        self.excl_files   = set(opts['exclude_files'])
-        self.incl_exts    = set(opts['extensions'])
-        self.excl_exts    = set(opts['exclude_extensions'])
-              
-    def __str__(self):
-        return f'Params(folders:{self.incl_folders}, exclude folders:{self.excl_folders}, files:{self.incl_files}, exclude files:{self.excl_files}, extensions:{self.incl_exts}, exclude extensions:{self.excl_exts})'
-
-#######################################################################################
-opts = get_cmd_line_options()
-f_log = open_for_write(opts['log_file'], append=True)
-
-uprint("", file=f_log)
-uprint(now_str(), 'Start', file=f_log)
-
-f_out = open_for_write(opts['output_file'])
-params = Params(opts)
-countTopDir = 0
-filelist = []
-for topdir in params.incl_folders:
-    countTopDir += 1
-    uprint(now_str(), countTopDir, ") topdir: '" + topdir + "'", file=f_log)
-    recurse_dir(topdir, filelist, params, f_log)
-
-uprint("FILE LIST. Len:", thousands(len(filelist)), file=f_out)
-uprint(json.dumps(filelist, indent=2), file=f_out)
-uprint(now_str(), "Finished.", file=f_log)
-
-
-close_file(f_out)
-close_file(f_log)
